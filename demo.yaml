@@ -1,0 +1,24 @@
+audio: "~/Music/loops/wedding_dress.wav"
+tempo: 95.7
+events:
+  - id: 1
+    inskip: 0
+    duration: 1
+    pitch: 1
+  - id: 2
+    inskip: 0.627
+    duration: 1
+    pitch: 1
+  - id: 3
+    inskip: 1.254
+    duration: 1
+    pitch: 1
+  - id: 4
+    inskip: 1.881
+    duration: 1
+    pitch: 1
+transitions:
+  - [2,3,1,3]
+  - [3,2,3,1]
+  - [1,3,2,3]
+  - [3,1,3,2]
