@@ -8,14 +8,34 @@ import numpy as np
 import random
 import subprocess
 import yaml
+import wave
 
+def simple_ratio():
+    simple_numbers = [1,2,3]
+    # choose two numbers at random without replacement
+    x = random.sample(simple_numbers,2)
+    y = x[0]/x[1]
+    return(y)
+
+def new_inskip(file_length):
+    index = random.randrange(16) # select random 16th note to start on
+    slack = 16-index # this is the amount of beats left until end
+    beats = random.randrange(slack)/4 # convert to quarter notes
+    inskip = file_length*index/16
+    return inskip, beats
+
+def get_duration(wav_path):
+    with wave.open(wav_path, 'r') as wav_file:
+        frames = wav_file.getnframes()
+        rate = wav_file.getframerate()
+        duration = frames / float(rate)
+        return(duration)
 
 class sound_graph:
     def __init__(self, sound_file=None, tempo=None, subsounds=None, transitions=None):
         # the sound_file is the path to the actual WAV or other sound source file
         # subsounds must be a list of tuples where the second item in the tuple is a dictionary
         # each dictionary contains the parameters of the CSound "note", mainly inskip and pitch ratio
-        # [(1, {"inskip": 1, "duration": 1, "pitch": 1})]
         
         # Store node attributes in a dictionary indexed by node ID
         self.nodes = {}
@@ -44,6 +64,7 @@ class sound_graph:
             # Convert to 0-indexed for numpy array
             self.transition_matrix[from_node - 1, to_node - 1] = weight
         
+        self.audio_length = get_duration(sound_file)
         self.tempo = tempo
         self.instrument = f"""
 sr     = 44100
@@ -123,7 +144,36 @@ endin
         
         # Actually run CSound
         subprocess.run(['csound', score_file])
-
+    def mutate_eges(self,mutation_probability):
+        for row in self.transition_matrix:
+            for col in row:
+                if random.random() < mutation_probability:
+                    self.transition_matrix[row,col] = self.transition_matrix[row,col]*simple_ratio()
+    def create_edges(self):
+        for row in self.transition_matrix:
+            for col in row:
+                self.transition_matrix[row,col] = simple_ratio()
+    def mutate_nodes(self,mutation_probability):
+        for node_id in self.nodes.keys():
+            node_attrs = self.nodes[node_id]
+            if random.random() < mutation_probability:
+                mutation = random.choice(['skipdur','pitch'])
+                if mutation == 'skipdur':
+                    # choose a different 16th note beat and duration
+                    inskip, duration = new_inskip(self.audio_length)
+                    node_attrs['inskip'] = inskip
+                    node_attrs['duration'] = duration
+                else: # mutation == 'pitch'
+                    # adjust the pitch (playback speed)
+                    node_attrs['pitch'] = node_attrs['pitch']*simple_ratio()
+            self.nodes[node_id] = node_attrs
+    def create_nodes(self):
+        for node_id in range(len(self.nodes)):
+            node_attrs = {}
+            inskip, duration = new_inskip(self.audio_length)
+            node_attrs['inskip'] = inskip
+            node_attrs['duration'] = duration
+            node_attrs['pitch'] = random.randrange(1,4,1)/random.randrange(1,4,1)
 
 if __name__ == '__main__':
     config_file = sys.argv[1]
